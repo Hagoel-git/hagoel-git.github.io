@@ -1,0 +1,23 @@
+body, header, ul, li{
+  margin: 0;
+  padding: 0;
+}
+
+/* Set background color for the body */
+body {
+  background-color: #f2f2f2;
+  background-image: url(background_tile.png);
+}
+
+div {
+  background-color: lightskyblue;
+  padding: 30px;
+  margin: 30px;
+  display: inline-block;
+}
+
+
+
+h1 {
+  font-size: 60px;
+}
