@@ -8,6 +8,71 @@ const speedSliderParam = {
   max: 2000,
   step: 20,
 };
+
+// --- Unified Visualizer ---
+function visualizeArray(state, done) {
+  const vis = document.getElementById("visualization");
+  const arr = state.arr;
+
+  if (!arr) {
+    vis.innerHTML = "";
+    return;
+  }
+
+  // Default styling
+  const defaultStyle = {
+    background: "#222",
+    border: "#444",
+    color: "#fff",
+    fontWeight: "normal",
+  };
+
+  vis.innerHTML = arr
+    .map((value, index) => {
+      let style = {...defaultStyle};
+
+      // Process visualization commands
+      if (state.visualCommands) {
+        state.visualCommands.forEach((command) => {
+          if (command.indices.includes(index)) {
+            // Apply command styling
+            Object.assign(style, command.style);
+          }
+        });
+      }
+
+      return `<span style="
+      display:inline-block;
+      width:40px;height:40px;
+      line-height:40px;
+      text-align:center;
+      margin:2px;
+      border:2px solid ${style.border};
+      background:${style.background};
+      color:${style.color};
+      font-weight:${style.fontWeight};
+      opacity:${style.opacity || 1};
+    ">${value}</span>`;
+    })
+    .join("");
+
+  // Add status message if provided
+  if (state.message) {
+    vis.innerHTML += `<div style="margin-top:10px;color:${state.messageColor || "#fff"};">${
+      state.message
+    }</div>`;
+  }
+
+  // Add completion message
+  if (done && state.result !== undefined) {
+    const isSuccess = state.result !== -1;
+    const color = isSuccess ? "#90ee90" : "#ff6f6f";
+    const message =
+      state.completionMessage || (isSuccess ? `Result: ${state.result}` : "Operation completed");
+    vis.innerHTML += `<div style="margin-top:10px;color:${color};">${message}</div>`;
+  }
+}
+
 // --- Algorithm registration system ---
 const algorithms = [
   {
@@ -22,7 +87,7 @@ const algorithms = [
       speedSliderParam,
     ],
     run: linearSearchRunner,
-    visualize: linearSearchVisualizer,
+    visualize: visualizeArray,
   },
   {
     name: "Binary Search",
@@ -41,50 +106,395 @@ const algorithms = [
       speedSliderParam,
     ],
     run: binarySearchRunner,
-    visualize: binarySearchVisualizer,
+    visualize: visualizeArray,
   },
   {
     name: "Bubble Sort",
     id: "bubble-sort",
     description:
-      "Bubble Sort is the simplest sorting algorithm that works by repeatedly swapping the adjacent elements if they are in the wrong order. This algorithm is not suitable for large data sets as its average and worst-case time complexity are quite high.",
+      "Bubble Sort is the simplest sorting algorithm that works by repeatedly swapping the adjacent elements if they are in the wrong order.",
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
       speedSliderParam,
     ],
     run: bubbleSortRunner,
-    visualize: bubbleSortVisualizer,
+    visualize: visualizeArray,
   },
   {
     name: "Selection Sort",
     id: "selection-sort",
     description:
-      "Selection sort is a sorting algorithm, specifically an in-place comparison sort. It has O(n2) time complexity, making it inefficient on large lists, and generally performs worse than the similar insertion sort. Selection sort is noted for its simplicity, and it has performance advantages over more complicated algorithms in certain situations, particularly where auxiliary memory is limited.",
+      "Selection sort is a sorting algorithm with O(n²) time complexity, noted for its simplicity.",
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
       speedSliderParam,
     ],
     run: selectionSortRunner,
-    visualize: selectionSortVisualizer,
+    visualize: visualizeArray,
   },
   {
     name: "Insertion Sort",
     id: "insertion-sort",
-    description:
-      "Insertion sort is a simple sorting algorithm that builds the final sorted array (or list) one item at a time. It is much less efficient on large lists than more advanced algorithms such as quicksort, heapsort, or merge sort.",
+    description: "Insertion sort builds the final sorted array one item at a time.",
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
       speedSliderParam,
     ],
     run: insertionSortRunner,
-    visualize: insertionSortVisualizer,
+    visualize: visualizeArray,
   },
-  // Add more algorithms here
 ];
 
+// --- Helper functions for creating visualization commands ---
+function highlightIndex(index, color = "#ffb347") {
+  return {
+    indices: [index],
+    style: {border: color, fontWeight: "bold"},
+  };
+}
+
+function highlightMultiple(indices, color = "#ffb347") {
+  return {
+    indices: indices,
+    style: {border: color, fontWeight: "bold"},
+  };
+}
+
+function markFound(index) {
+  return {
+    indices: [index],
+    style: {background: "#2e7d32", border: "#4caf50", fontWeight: "bold"},
+  };
+}
+
+function markSwapped(indices) {
+  return {
+    indices: indices,
+    style: {background: "#ff6b35", border: "#ff8c42", fontWeight: "bold"},
+  };
+}
+
+function markSwappedSuccess(indices) {
+  return {
+    indices: indices,
+    style: {background: "#44a344", border: "#4caf50", fontWeight: "bold"},
+  };
+}
+
+function markComparing(indices) {
+  return {
+    indices: indices,
+    style: {background: "#444d", border: "#ffb347", fontWeight: "bold"},
+  };
+}
+
+function disableRange(startIndex, endIndex) {
+  const indices = [];
+  for (let i = startIndex; i <= endIndex; i++) {
+    indices.push(i);
+  }
+  return {
+    indices: indices,
+    style: {background: "#181818", opacity: 0.5},
+  };
+}
+
+function markMinimum(index) {
+  return {
+    indices: [index],
+    style: {border: "#5454ff", fontWeight: "bold"},
+  };
+}
+
+// --- Search Implementations ---
+function* linearSearchRunner(params) {
+  const arr = params.array;
+  const target = params.target;
+  const speed = params.speed;
+
+  for (let i = 0; i < arr.length; i++) {
+    const visualCommands = [highlightIndex(i)];
+
+    if (arr[i] === target) {
+      visualCommands.push(markFound(i));
+      yield {
+        arr,
+        visualCommands,
+        message: `Found target ${target} at index ${i}`,
+        messageColor: "#90ee90",
+        speed,
+      };
+      return {
+        arr,
+        visualCommands,
+        result: i,
+        completionMessage: `Element found at index ${i}`,
+        speed,
+      };
+    }
+
+    yield {
+      arr,
+      visualCommands,
+      message: `Checking index ${i}: ${arr[i]} !== ${target}`,
+      speed,
+    };
+  }
+
+  return {
+    arr,
+    visualCommands: [],
+    result: -1,
+    completionMessage: "Element not found",
+    speed,
+  };
+}
+
+function* binarySearchRunner(params) {
+  const arr = params.array;
+  const target = params.target;
+  const speed = params.speed;
+  let left = 0;
+  let right = arr.length - 1;
+
+  while (left <= right) {
+    let middle = Math.floor((left + right) / 2);
+    const visualCommands = [
+      highlightIndex(middle, "#ffb347"),
+      disableRange(0, left - 1),
+      disableRange(right + 1, arr.length - 1),
+    ];
+
+    if (arr[middle] === target) {
+      visualCommands.push(markFound(middle));
+      yield {
+        arr,
+        visualCommands,
+        message: `Found target ${target} at index ${middle}`,
+        messageColor: "#90ee90",
+        speed,
+      };
+      return {
+        arr,
+        visualCommands,
+        result: middle,
+        completionMessage: `Element found at index ${middle}`,
+        speed,
+      };
+    }
+
+    yield {
+      arr,
+      visualCommands,
+      message: `Checking middle (${middle}): ${arr[middle]} ${
+        arr[middle] > target ? ">" : "<"
+      } ${target}`,
+      speed,
+    };
+
+    if (arr[middle] > target) {
+      right = middle - 1;
+    } else {
+      left = middle + 1;
+    }
+  }
+
+  return {
+    arr,
+    visualCommands: [],
+    result: -1,
+    completionMessage: "Element not found",
+    speed,
+  };
+}
+
+// --- Sort Implementations ---
+function* bubbleSortRunner(params) {
+  const arr = params.array;
+  const speed = params.speed;
+  let swapped;
+
+  for (let i = 0; i < arr.length - 1; i++) {
+    swapped = false;
+    for (let j = 0; j < arr.length - i - 1; j++) {
+      const visualCommands = [
+        highlightMultiple([j, j + 1]),
+        disableRange(arr.length - i, arr.length - 1),
+      ];
+
+      yield {
+        arr,
+        visualCommands,
+        message: `Comparing ${arr[j]} and ${arr[j + 1]}`,
+        speed,
+      };
+
+      if (arr[j] > arr[j + 1]) {
+        // Show elements about to be swapped
+        yield {
+          arr,
+          visualCommands: [markSwapped([j, j + 1]), disableRange(arr.length - i, arr.length - 1)],
+          message: `Swapping ${arr[j]} and ${arr[j + 1]}`,
+          messageColor: "#ff8c42",
+          speed: speed / 2,
+        };
+
+        // Perform swap
+        const temp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+        swapped = true;
+
+        // Show successful swap
+        yield {
+          arr,
+          visualCommands: [
+            markSwappedSuccess([j, j + 1]),
+            disableRange(arr.length - i, arr.length - 1),
+          ],
+          message: `Swapped! New order: ${arr[j]}, ${arr[j + 1]}`,
+          messageColor: "#90ee90",
+          speed: speed / 2,
+        };
+      }
+    }
+    if (!swapped) break;
+  }
+
+  return {
+    arr,
+    visualCommands: [],
+    result: arr,
+    completionMessage: "Array is sorted",
+    speed,
+  };
+}
+
+function* selectionSortRunner(params) {
+  const arr = params.array;
+  const speed = params.speed;
+
+  for (let i = 0; i < arr.length - 1; i++) {
+    let minIndex = i;
+
+    yield {
+      arr,
+      visualCommands: [markMinimum(minIndex), disableRange(0, i - 1)],
+      message: `Finding minimum in unsorted portion (starting from index ${i})`,
+      speed,
+    };
+
+    for (let j = i + 1; j < arr.length; j++) {
+      const visualCommands = [markMinimum(minIndex), highlightIndex(j), disableRange(0, i - 1)];
+
+      if (arr[j] < arr[minIndex]) {
+        minIndex = j;
+      }
+
+      yield {
+        arr,
+        visualCommands,
+        message: `Current minimum: ${arr[minIndex]} at index ${minIndex}`,
+        speed,
+      };
+    }
+
+    if (minIndex !== i) {
+      // Show elements about to be swapped
+      yield {
+        arr,
+        visualCommands: [markSwapped([i, minIndex]), disableRange(0, i - 1)],
+        message: `Swapping minimum ${arr[minIndex]} with ${arr[i]}`,
+        messageColor: "#ff8c42",
+        speed: speed / 2,
+      };
+
+      // Perform swap
+      const temp = arr[minIndex];
+      arr[minIndex] = arr[i];
+      arr[i] = temp;
+
+      // Show successful swap
+      yield {
+        arr,
+        visualCommands: [markSwappedSuccess([i, minIndex]), disableRange(0, i - 1)],
+        message: `Swapped! ${arr[i]} is now in position ${i}`,
+        messageColor: "#90ee90",
+        speed: speed / 2,
+      };
+    }
+  }
+
+  return {
+    arr,
+    visualCommands: [],
+    result: arr,
+    completionMessage: "Array is sorted",
+    speed,
+  };
+}
+
+function* insertionSortRunner(params) {
+  const arr = params.array;
+  const speed = params.speed;
+
+  for (let i = 1; i < arr.length; i++) {
+    let currentIndex = i;
+    const key = arr[i];
+
+    yield {
+      arr,
+      visualCommands: [highlightIndex(i), disableRange(i + 1, arr.length - 1)],
+      message: `Inserting ${key} into sorted portion`,
+      speed,
+    };
+
+    while (currentIndex > 0 && arr[currentIndex - 1] > arr[currentIndex]) {
+      // Show elements about to be swapped
+      yield {
+        arr,
+        visualCommands: [
+          markSwapped([currentIndex - 1, currentIndex]),
+          disableRange(i + 1, arr.length - 1),
+        ],
+        message: `Moving ${arr[currentIndex]} left (swapping with ${arr[currentIndex - 1]})`,
+        messageColor: "#ff8c42",
+        speed: speed / 2,
+      };
+
+      // Perform swap
+      const temp = arr[currentIndex - 1];
+      arr[currentIndex - 1] = arr[currentIndex];
+      arr[currentIndex] = temp;
+      currentIndex--;
+
+      // Show successful swap
+      yield {
+        arr,
+        visualCommands: [
+          markSwappedSuccess([currentIndex, currentIndex + 1]),
+          disableRange(i + 1, arr.length - 1),
+        ],
+        message: `Moved ${key} to position ${currentIndex}`,
+        messageColor: "#90ee90",
+        speed: speed / 2,
+      };
+    }
+  }
+
+  return {
+    arr,
+    visualCommands: [],
+    result: arr,
+    completionMessage: "Array is sorted",
+    speed,
+  };
+}
+
+// --- UI Management Functions ---
 function populateMenu() {
   const list = document.getElementById("algorithm-list");
   const topics = [...new Set(algorithms.map((a) => a.topic))];
@@ -108,14 +518,12 @@ function populateMenu() {
 }
 
 function selectAlgorithm(id) {
-  stopAlgorithm(); // Stop any running algorithm first
+  stopAlgorithm();
   const main = document.getElementById("main-content");
 
-  // Remove old parameters panel if exists
   const oldPanel = document.getElementById("parameters-panel");
   if (oldPanel) oldPanel.remove();
 
-  // Get the selected algorithm object
   const algo = algorithms.find((a) => a.id === id);
   if (!algo) {
     console.error("Algorithm not found:", id);
@@ -125,40 +533,36 @@ function selectAlgorithm(id) {
   runnerState.currentAlgorithm = algo;
   runnerState.paused = false;
 
-  // Add parameters panel to bottom right (append to body)
   const panel = document.createElement("div");
   panel.id = "parameters-panel";
   panel.innerHTML = `
-        <div id='algorithm-description'>${algo.description}</div>
-        <form id='algo-form'>
-            ${algo.params
-              .map(
-                (p) => `
-                <label>${p.label}:<br><input id='param-${p.id}' type='${p.type}' value='${
-                  p.default
-                }' 
-           ${p.min ? `min='${p.min}'` : ""} 
-           ${p.max ? `max='${p.max}'` : ""} 
-           ${p.step ? `step='${p.step}'` : ""}></label><br>
-            `
-              )
-              .join("")}
-            <button type='button' id='start-btn'>Start</button>
-            <button type='button' id='pause-btn'>Pause</button>
-            <button type='button' id='resume-btn'>Resume</button>
-        </form>
-        <div id='return-value'></div>
-    `;
+    <div id='algorithm-description'>${algo.description}</div>
+    <form id='algo-form'>
+      ${algo.params
+        .map(
+          (p) => `
+            <label>${p.label}:<br><input id='param-${p.id}' type='${p.type}' value='${p.default}' 
+               ${p.min ? `min='${p.min}'` : ""} 
+               ${p.max ? `max='${p.max}'` : ""} 
+               ${p.step ? `step='${p.step}'` : ""}></label><br>
+          `
+        )
+        .join("")}
+      <button type='button' id='start-btn'>Start</button>
+      <button type='button' id='pause-btn'>Pause</button>
+      <button type='button' id='resume-btn'>Resume</button>
+    </form>
+    <div id='return-value'></div>
+  `;
   document.body.appendChild(panel);
   main.innerHTML = `<h2>${algo.name}</h2><div id='visualization'></div>`;
 
-  // Attach event listeners
   document.getElementById("start-btn").onclick = () => startAlgorithm(algo);
   document.getElementById("pause-btn").onclick = () => pauseAlgorithm();
   document.getElementById("resume-btn").onclick = () => resumeAlgorithm(algo);
 }
 
-// --- Generic algorithm runner state ---
+// --- Algorithm Runner State ---
 let runnerState = {
   paused: false,
   timeoutId: null,
@@ -244,270 +648,6 @@ function runAlgorithmStep() {
     runnerState.timeoutId = setTimeout(() => {
       runAlgorithmStep();
     }, value.speed || 500);
-  }
-}
-
-// --- Searches Implementation ---
-function* linearSearchRunner(params) {
-  const arr = params.array;
-  const target = params.target;
-  const speed = params.speed;
-
-  for (let i = 0; i < arr.length; i++) {
-    yield {arr, target, currentIndex: i, found: arr[i] === target, speed};
-    if (arr[i] === target) return {arr, target, currentIndex: i, found: true, result: i, speed};
-  }
-  return {arr, target, currentIndex: arr.length, found: false, result: -1, speed};
-}
-
-function linearSearchVisualizer(state, done) {
-  const vis = document.getElementById("visualization");
-  vis.innerHTML = state.arr
-    .map(
-      (v, i) =>
-        `<span style='display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;margin:2px;border:2px solid ${
-          i === state.currentIndex ? "#ffb347" : "#444"
-        };background:${
-          v === state.target && i === state.currentIndex ? "#2e7d32" : "#222"
-        };color:#fff;font-weight:${i === state.currentIndex ? "bold" : "normal"};'>${v}</span>`
-    )
-    .join("");
-  if (done) {
-    if (state.found) {
-      vis.innerHTML += `<div style='margin-top:10px;color:#90ee90;'>Element found at index ${state.currentIndex}.</div>`;
-    } else {
-      vis.innerHTML += `<div style='margin-top:10px;color:#ff6f6f;'>Element not found.</div>`;
-    }
-  }
-}
-
-function* binarySearchRunner(params) {
-  const arr = params.array;
-  const target = params.target;
-  const speed = params.speed;
-  let left = 0;
-  let right = arr.length - 1;
-  while (left <= right) {
-    let middle = Math.floor((left + right) / 2);
-    yield {arr, target, currentIndex: middle, found: arr[middle] === target, speed};
-    if (arr[middle] === target) {
-      return {arr, target, currentIndex: middle, found: true, result: middle, speed};
-    }
-    if (arr[middle] > target) {
-      right = middle - 1;
-    } else {
-      left = middle + 1;
-    }
-  }
-  return {arr, target, currentIndex: arr.length, found: false, result: -1, speed};
-}
-
-function binarySearchVisualizer(state, done) {
-  const vis = document.getElementById("visualization");
-  vis.innerHTML = state.arr
-    .map(
-      (v, i) =>
-        `<span style='display:inline-block;width:40px;height:40px;line-height:40px;text-align:center;margin:2px;border:2px solid ${
-          i === state.currentIndex ? "#ffb347" : "#444"
-        };background:${
-          v === state.target && i === state.currentIndex ? "#2e7d32" : "#222"
-        };color:#fff;font-weight:${i === state.currentIndex ? "bold" : "normal"};'>${v}</span>`
-    )
-    .join("");
-  if (done) {
-    if (state.found) {
-      vis.innerHTML += `<div style='margin-top:10px;color:#90ee90;'>Element found at index ${state.currentIndex}.</div>`;
-    } else {
-      vis.innerHTML += `<div style='margin-top:10px;color:#ff6f6f;'>Element not found.</div>`;
-    }
-  }
-}
-
-// --- Sorts Implementation ---
-
-function* bubbleSortRunner(params) {
-  const arr = params.array;
-  const speed = params.speed;
-  let swapped;
-
-  for (let i = 0; i < arr.length - 1; i++) {
-    swapped = false;
-    for (let j = 0; j < arr.length - i - 1; j++) {
-      yield {arr, compareIndex: j, nextIndex: j + 1, speed, swapped: false};
-
-      if (arr[j] > arr[j + 1]) {
-        const temp = arr[j];
-        arr[j] = arr[j + 1];
-        arr[j + 1] = temp;
-        swapped = true;
-        yield {arr, compareIndex: j, nextIndex: j + 1, speed, swapped: true};
-      }
-    }
-    if (!swapped) {
-      break;
-    }
-  }
-  return {arr, compareIndex: -1, nextIndex: -1, speed, swapped: false};
-}
-
-function bubbleSortVisualizer(state, done) {
-  const vis = document.getElementById("visualization");
-  vis.innerHTML = state.arr
-    .map((v, i) => {
-      let borderColor = "#444";
-      let background = "#222";
-      let disabledBackground = "#181818";
-      let fontWeight = "normal";
-      if (i === state.compareIndex || i === state.nextIndex) {
-        borderColor = "#ffb347";
-        fontWeight = "bold";
-        if (state.swapped) {
-          background = "#44a344";
-        } else {
-          background = "#444d";
-        }
-      }
-      return `<span style="
-            display:inline-block;
-            width:40px;height:40px;
-            line-height:40px;
-            text-align:center;
-            margin:2px;
-            border:2px solid ${borderColor};
-            background:${i > state.nextIndex ? disabledBackground : background};
-            color:#fff;
-            font-weight:${fontWeight};
-        ">${v}</span>`;
-    })
-    .join("");
-
-  if (done) {
-    vis.innerHTML += `<div style="margin-top:10px;color:#90ee90;">Array is sorted.</div>`;
-  }
-}
-
-function* selectionSortRunner(params) {
-  const arr = params.array;
-  const speed = params.speed;
-
-  for (let i = 0; i < arr.length - 1; i++) {
-    let jmin = i;
-    yield {arr, minIndex: jmin, currentIndex: i, currentI: i, speed, swapped: false};
-    for (let j = i + 1; j < arr.length; j++) {
-      if (arr[j] < arr[jmin]) {
-        jmin = j;
-      }
-      yield {arr, minIndex: jmin, currentIndex: j, currentI: i, speed, swapped: false};
-    }
-    if (jmin != i) {
-      const temp = arr[jmin];
-      arr[jmin] = arr[i];
-      arr[i] = temp;
-      yield {arr, minIndex: i, currentIndex: jmin, currentI: jmin, speed, swapped: true};
-    } else {
-      yield {arr, minIndex: i, currentIndex: jmin, currentI: jmin, speed, swapped: true};
-    }
-  }
-  return {arr, minIndex: -1, currentIndex: -1, speed, swapped: false};
-}
-
-function selectionSortVisualizer(state, done) {
-  const vis = document.getElementById("visualization");
-  vis.innerHTML = state.arr
-    .map((v, i) => {
-      let borderColor = "#444";
-      let background = "#222";
-      let disabledBackground = "#181818";
-      let fontWeight = "normal";
-      if (i === state.minIndex || i === state.currentIndex || i === state.currentI) {
-        if (i === state.minIndex) {
-          borderColor = "#5454ff";
-        } else if (i === state.currentI) {
-          borderColor = "#999999";
-        } else {
-          borderColor = "#ffb347";
-        }
-        fontWeight = "bold";
-        if (state.swapped) {
-          background = "#44a344";
-        } else {
-          background = "#444d";
-        }
-      }
-      return `<span style="
-            display:inline-block;
-            width:40px;height:40px;
-            line-height:40px;
-            text-align:center;
-            margin:2px;
-            border:2px solid ${borderColor};
-            background:${i > state.nextIndex ? disabledBackground : background};
-            color:#fff;
-            font-weight:${fontWeight};
-        ">${v}</span>`;
-    })
-    .join("");
-
-  if (done) {
-    vis.innerHTML += `<div style="margin-top:10px;color:#90ee90;">Array is sorted.</div>`;
-  }
-}
-
-function* insertionSortRunner(params) {
-  const arr = params.array;
-  const speed = params.speed;
-
-  for (let i = 1; i < arr.length; i++) {
-    currentIndex = i;
-    yield {arr, minIndex: i, currentIndex: currentIndex, speed, swapped: false};
-    while (arr[currentIndex - 1] !== undefined && arr[currentIndex - 1] > arr[currentIndex]) {
-      const temp = arr[currentIndex - 1];
-      arr[currentIndex - 1] = arr[currentIndex];
-      arr[currentIndex] = temp;
-      currentIndex--;
-      yield {arr, minIndex: i, currentIndex: currentIndex, speed, swapped: true};
-    }
-  }
-  return {arr, minIndex: -1, currentIndex: -1, speed, swapped: false};
-}
-
-function insertionSortVisualizer(state, done) {
-  const vis = document.getElementById("visualization");
-  vis.innerHTML = state.arr
-    .map((v, i) => {
-      let borderColor = "#444";
-      let background = "#222";
-      let disabledBackground = "#181818";
-      let fontWeight = "normal";
-      if (i === state.minIndex || i === state.currentIndex) {
-        if (i === state.minIndex) {
-          borderColor = "#ffb347";
-        } else {
-          borderColor = "#5454ff";
-        }
-        fontWeight = "bold";
-        if (state.swapped) {
-          background = "#44a344";
-        } else {
-          background = "#444d";
-        }
-      }
-      return `<span style="
-            display:inline-block;
-            width:40px;height:40px;
-            line-height:40px;
-            text-align:center;
-            margin:2px;
-            border:2px solid ${borderColor};
-            background:${i > state.nextIndex ? disabledBackground : background};
-            color:#fff;
-            font-weight:${fontWeight};
-        ">${v}</span>`;
-    })
-    .join("");
-
-  if (done) {
-    vis.innerHTML += `<div style="margin-top:10px;color:#90ee90;">Array is sorted.</div>`;
   }
 }
 
