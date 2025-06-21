@@ -6,6 +6,7 @@ const algorithms = [
         name: 'Linear Search',
         id: 'linear-search',
         description: 'Linear search scans each element in the array sequentially to find the target value. Returns the index if found, otherwise -1.',
+        topic: 'Searches',
         params: [
             { label: 'Array (comma separated)', id: 'array', type: 'text', default: '2,6,-2,4,3,2' },
             { label: 'Target', id: 'target', type: 'number', default: -2 },
@@ -18,6 +19,7 @@ const algorithms = [
         name: 'Binary Search',
         id: 'binary-search',
         description: 'Binary search finds the position of a target value within a sorted array. It compares the target to the middle element and narrows down the search range accordingly.',
+        topic: 'Searches',
         params: [
             { label: 'Sorted Array (comma separated)', id: 'array', type: 'text', default: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16' },
             { label: 'Target', id: 'target', type: 'number', default: 5 },
@@ -30,6 +32,7 @@ const algorithms = [
         name: 'Bubble Sort',
         id: 'bubble-sort',
         description: 'Bubble Sort is the simplest sorting algorithm that works by repeatedly swapping the adjacent elements if they are in the wrong order. This algorithm is not suitable for large data sets as its average and worst-case time complexity are quite high.',
+        topic: 'Sorting',
         params: [
             { label: 'Array (comma separated)', id: 'array', type: 'text', default: '4,-2,-8,0,5,2,1,1,0' },
             { label: 'Speed (ms)', id: 'speed', type: 'range', default: 500, min: 100, max: 2000, step: 100 }
@@ -41,6 +44,7 @@ const algorithms = [
         name: 'Selection Sort',
         id: 'selection-sort',
         description: 'Selection sort is a sorting algorithm, specifically an in-place comparison sort. It has O(n2) time complexity, making it inefficient on large lists, and generally performs worse than the similar insertion sort. Selection sort is noted for its simplicity, and it has performance advantages over more complicated algorithms in certain situations, particularly where auxiliary memory is limited.',
+        topic: 'Sorting',
         params: [
             { label: 'Array (comma separated)', id: 'array', type: 'text', default: '4,-2,-8,0,5,2,1,1,0' },
             { label: 'Speed (ms)', id: 'speed', type: 'range', default: 500, min: 100, max: 2000, step: 100 }
@@ -53,12 +57,30 @@ const algorithms = [
 
 function populateMenu() {
     const list = document.getElementById('algorithm-list');
-    algorithms.forEach(algo => {
-        const li = document.createElement('li');
-        li.textContent = algo.name;
-        li.onclick = () => selectAlgorithm(algo.id);
-        list.appendChild(li);
-    });
+    const topics = [...new Set(algorithms.map(a => a.topic))]
+    topics.forEach(topic => {
+        const header = document.createElement('li');
+        header.textContent = topic;
+        header.classList.add('topic-header');
+        list.appendChild(header);
+        const ul = document.createElement('ul');
+        ul.classList.add('topic-group');
+        algorithms
+        .filter(a => a.topic === topic)
+        .forEach(algo => {
+            const li = document.createElement('li');
+            li.textContent = algo.name;
+            li.onclick = () => selectAlgorithm(algo.id);
+            ul.appendChild(li);
+        })
+        list.appendChild(ul);
+    })
+    // algorithms.forEach(algo => {
+    //     const li = document.createElement('li');
+    //     li.textContent = algo.name;
+    //     li.onclick = () => selectAlgorithm(algo.id);
+    //     list.appendChild(li);
+    // });
 }
 
 function selectAlgorithm(id) {
@@ -274,19 +296,20 @@ function* selectionSortRunner(params) {
 
     for (let i = 0; i < arr.length - 1; i++) {
         let jmin = i;
+        yield { arr, minIndex: jmin, currentIndex: i, currentI: i, speed, swapped: false };
         for (let j = i + 1; j < arr.length; j++) {
-            yield { arr, minIndex: jmin, currentIndex: j, speed, swapped: false };
-
             if (arr[j] < arr[jmin]) {
                 jmin = j;
             }
+            yield { arr, minIndex: jmin, currentIndex: j, currentI: i, speed, swapped: false };
         }
         if (jmin != i) {
             const temp = arr[jmin];
             arr[jmin] = arr[i];
             arr[i] = temp;
-            yield { arr, minIndex: jmin, currentIndex: i, speed, swapped: true };
-
+            yield { arr, minIndex: i, currentIndex: jmin, currentI: jmin, speed, swapped: true };
+        } else {
+            yield { arr, minIndex: i, currentIndex: jmin, currentI: jmin, speed, swapped: true };
         }
     }
     return { arr, minIndex: -1, currentIndex: -1, speed, swapped: false };
@@ -299,8 +322,14 @@ function selectionSortVisualizer(state, done) {
         let background = '#222';
         let disabledBackground = '#181818';
         let fontWeight = 'normal';
-        if (i === state.minIndex || i === state.currentIndex) {
-            borderColor = '#ffb347';            
+        if (i === state.minIndex || i === state.currentIndex || i === state.currentI) {
+            if (i === state.minIndex) {
+                borderColor = '#5454ff';
+            } else if (i === state.currentI) {
+                borderColor = '#999999';
+            } else {
+                borderColor = '#ffb347';  
+            }      
             fontWeight = 'bold';
             if (state.swapped) {
                 background = '#44a344';         
