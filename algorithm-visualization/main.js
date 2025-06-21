@@ -112,7 +112,7 @@ const algorithms = [
       },
     ],
     run: insertionSortRunner,
-    visualize: insertionortVisualizer,
+    visualize: insertionSortVisualizer,
   },
   // Add more algorithms here
 ];
@@ -461,7 +461,7 @@ function* insertionSortRunner(params) {
   return {arr, minIndex: -1, currentIndex: -1, speed, swapped: false};
 }
 
-function insertionortVisualizer(state, done) {
+function insertionSortVisualizer(state, done) {
   const vis = document.getElementById("visualization");
   vis.innerHTML = state.arr
     .map((v, i) => {
