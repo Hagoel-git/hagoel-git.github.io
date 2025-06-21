@@ -62,6 +62,45 @@ function markMinimum(index) {
   };
 }
 
+function markPivot(index) {
+  return {
+    indices: [index],
+    style: {background: "#9c27b0", border: "#e91e63", fontWeight: "bold", color: "#fff"},
+  };
+}
+
+function markPartitionBoundary(index) {
+  return {
+    indices: [index],
+    style: {background: "#ff9800", border: "#f57c00", fontWeight: "bold"},
+  };
+}
+
+function markLessThanPivot(indices) {
+  return {
+    indices: indices,
+    style: {background: "#4caf50", border: "#388e3c", fontWeight: "bold"},
+  };
+}
+
+function markGreaterThanPivot(indices) {
+  return {
+    indices: indices,
+    style: {background: "#f44336", border: "#d32f2f", fontWeight: "bold"},
+  };
+}
+
+function markCurrentSubarray(startIndex, endIndex) {
+  const indices = [];
+  for (let i = startIndex; i <= endIndex; i++) {
+    indices.push(i);
+  }
+  return {
+    indices: indices,
+    style: {border: "#2196f3", background: "#1976d2", opacity: 0.8},
+  };
+}
+
 // --- Search Implementations ---
 function* linearSearchRunner(params) {
   const arr = params.array;
@@ -192,7 +231,7 @@ function* bubbleSortRunner(params) {
           visualCommands: [markSwapped([j, j + 1]), disableRange(arr.length - i, arr.length - 1)],
           message: `Swapping ${arr[j]} and ${arr[j + 1]}`,
           messageColor: "#ff8c42",
-          speed: speed / 2,
+          speed: speed,
         };
 
         // Perform swap
@@ -210,7 +249,7 @@ function* bubbleSortRunner(params) {
           ],
           message: `Swapped! New order: ${arr[j]}, ${arr[j + 1]}`,
           messageColor: "#90ee90",
-          speed: speed / 2,
+          speed: speed,
         };
       }
     }
@@ -262,7 +301,7 @@ function* selectionSortRunner(params) {
         visualCommands: [markSwapped([i, minIndex]), disableRange(0, i - 1)],
         message: `Swapping minimum ${arr[minIndex]} with ${arr[i]}`,
         messageColor: "#ff8c42",
-        speed: speed / 2,
+        speed: speed,
       };
 
       // Perform swap
@@ -276,7 +315,7 @@ function* selectionSortRunner(params) {
         visualCommands: [markSwappedSuccess([i, minIndex]), disableRange(0, i - 1)],
         message: `Swapped! ${arr[i]} is now in position ${i}`,
         messageColor: "#90ee90",
-        speed: speed / 2,
+        speed: speed,
       };
     }
   }
@@ -315,7 +354,7 @@ function* insertionSortRunner(params) {
         ],
         message: `Moving ${arr[currentIndex]} left (swapping with ${arr[currentIndex - 1]})`,
         messageColor: "#ff8c42",
-        speed: speed / 2,
+        speed: speed,
       };
 
       // Perform swap
@@ -333,7 +372,7 @@ function* insertionSortRunner(params) {
         ],
         message: `Moved ${key} to position ${currentIndex}`,
         messageColor: "#90ee90",
-        speed: speed / 2,
+        speed: speed,
       };
     }
   }
@@ -345,6 +384,241 @@ function* insertionSortRunner(params) {
     completionMessage: "Array is sorted",
     speed,
   };
+}
+
+function* quickSortRunner(params) {
+  const arr = params.array;
+  const speed = params.speed;
+
+  // Initial state showing the entire array
+  yield {
+    arr,
+    visualCommands: [markCurrentSubarray(0, arr.length - 1)],
+    message: "Starting Quick Sort on entire array",
+    speed,
+  };
+
+  yield* quickSortHelper(arr, 0, arr.length - 1, speed, 0);
+
+  return {
+    arr,
+    visualCommands: [],
+    result: arr,
+    completionMessage: "Array is sorted",
+    speed,
+  };
+}
+
+function* quickSortHelper(arr, low, high, speed, depth) {
+  if (low < high) {
+    // Show current subarray being processed
+    yield {
+      arr,
+      visualCommands: [
+        markCurrentSubarray(low, high),
+        disableRange(0, low - 1),
+        disableRange(high + 1, arr.length - 1),
+      ],
+      message: `Sorting subarray from index ${low} to ${high} (depth ${depth})`,
+      speed,
+    };
+
+    const pivotIndex = yield* partition(arr, low, high, speed);
+
+    // Show the result of partitioning
+    const lessThanIndices = [];
+    const greaterThanIndices = [];
+    for (let i = low; i < pivotIndex; i++) lessThanIndices.push(i);
+    for (let i = pivotIndex + 1; i <= high; i++) greaterThanIndices.push(i);
+
+    yield {
+      arr,
+      visualCommands: [
+        markPivot(pivotIndex),
+        ...(lessThanIndices.length > 0 ? [markLessThanPivot(lessThanIndices)] : []),
+        ...(greaterThanIndices.length > 0 ? [markGreaterThanPivot(greaterThanIndices)] : []),
+        disableRange(0, low - 1),
+        disableRange(high + 1, arr.length - 1),
+      ],
+      message: `Partitioned around pivot ${arr[pivotIndex]} at index ${pivotIndex}`,
+      messageColor: "#e91e63",
+      speed: speed * 1.5,
+    };
+
+    // Recursively sort left partition
+    if (low < pivotIndex - 1) {
+      yield {
+        arr,
+        visualCommands: [
+          markCurrentSubarray(low, pivotIndex - 1),
+          markPivot(pivotIndex),
+          disableRange(0, low - 1),
+          disableRange(pivotIndex, arr.length - 1),
+        ],
+        message: `Recursively sorting left partition [${low}...${pivotIndex - 1}]`,
+        messageColor: "#4caf50",
+        speed,
+      };
+      yield* quickSortHelper(arr, low, pivotIndex - 1, speed, depth + 1);
+    }
+
+    // Recursively sort right partition
+    if (pivotIndex + 1 < high) {
+      yield {
+        arr,
+        visualCommands: [
+          markCurrentSubarray(pivotIndex + 1, high),
+          markPivot(pivotIndex),
+          disableRange(0, pivotIndex),
+          disableRange(high + 1, arr.length - 1),
+        ],
+        message: `Recursively sorting right partition [${pivotIndex + 1}...${high}]`,
+        messageColor: "#f44336",
+        speed,
+      };
+      yield* quickSortHelper(arr, pivotIndex + 1, high, speed, depth + 1);
+    }
+  }
+  return arr;
+}
+
+function* partition(arr, low, high, speed) {
+  const pivot = arr[high];
+  let i = low - 1; // Index of smaller element
+
+  // Show initial state with pivot
+  yield {
+    arr,
+    visualCommands: [
+      markPivot(high),
+      markCurrentSubarray(low, high - 1),
+      disableRange(0, low - 1),
+      disableRange(high + 1, arr.length - 1),
+    ],
+    message: `Partitioning with pivot ${pivot} at index ${high}`,
+    messageColor: "#9c27b0",
+    speed,
+  };
+
+  for (let j = low; j < high; j++) {
+    // Show current element being compared
+    yield {
+      arr,
+      visualCommands: [
+        markPivot(high),
+        highlightIndex(j),
+        markPartitionBoundary(i + 1),
+        disableRange(0, low - 1),
+        disableRange(high + 1, arr.length - 1),
+      ],
+      message: `Comparing ${arr[j]} with pivot ${pivot}`,
+      speed,
+    };
+
+    if (arr[j] < pivot) {
+      i++;
+
+      if (i !== j) {
+        // Show elements about to be swapped
+        yield {
+          arr,
+          visualCommands: [
+            markPivot(high),
+            markSwapped([i, j]),
+            disableRange(0, low - 1),
+            disableRange(high + 1, arr.length - 1),
+          ],
+          message: `${arr[j]} < ${pivot}, swapping with position ${i}`,
+          messageColor: "#ff8c42",
+          speed: speed,
+        };
+
+        // Perform swap
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+
+        // Show successful swap
+        yield {
+          arr,
+          visualCommands: [
+            markPivot(high),
+            markSwappedSuccess([i, j]),
+            disableRange(0, low - 1),
+            disableRange(high + 1, arr.length - 1),
+          ],
+          message: `Swapped! ${arr[i]} moved to smaller elements section`,
+          messageColor: "#4caf50",
+          speed: speed,
+        };
+      } else {
+        // Element is already in correct position
+        yield {
+          arr,
+          visualCommands: [
+            markPivot(high),
+            markSwappedSuccess([i]),
+            disableRange(0, low - 1),
+            disableRange(high + 1, arr.length - 1),
+          ],
+          message: `${arr[j]} < ${pivot}, already in correct position`,
+          messageColor: "#4caf50",
+          speed: speed,
+        };
+      }
+    } else {
+      // Element is greater than or equal to pivot
+      yield {
+        arr,
+        visualCommands: [
+          markPivot(high),
+          highlightIndex(j, "#f44336"),
+          markPartitionBoundary(i + 1),
+          disableRange(0, low - 1),
+          disableRange(high + 1, arr.length - 1),
+        ],
+        message: `${arr[j]} >= ${pivot}, stays in greater elements section`,
+        messageColor: "#f44336",
+        speed: speed,
+      };
+    }
+  }
+
+  // Show final pivot placement
+  yield {
+    arr,
+    visualCommands: [
+      markSwapped([i + 1, high]),
+      disableRange(0, low - 1),
+      disableRange(high + 1, arr.length - 1),
+    ],
+    message: `Moving pivot ${pivot} to its final position ${i + 1}`,
+    messageColor: "#ff8c42",
+    speed: speed,
+  };
+
+  // Place pivot in correct position
+  [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+
+  // Show final partitioned state
+  const lessThanIndices = [];
+  const greaterThanIndices = [];
+  for (let k = low; k < i + 1; k++) lessThanIndices.push(k);
+  for (let k = i + 2; k <= high; k++) greaterThanIndices.push(k);
+
+  yield {
+    arr,
+    visualCommands: [
+      markPivot(i + 1),
+      ...(lessThanIndices.length > 0 ? [markLessThanPivot(lessThanIndices)] : []),
+      ...(greaterThanIndices.length > 0 ? [markGreaterThanPivot(greaterThanIndices)] : []),
+      disableRange(0, low - 1),
+      disableRange(high + 1, arr.length - 1),
+    ],
+    message: `Partition complete! Pivot ${arr[i + 1]} is in final position ${i + 1}`,
+    messageColor: "#9c27b0",
+    speed: speed * 1.5,
+  };
+
+  return i + 1;
 }
 
 // Export for use in main.js

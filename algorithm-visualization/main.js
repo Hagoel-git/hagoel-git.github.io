@@ -91,6 +91,27 @@ window.algorithms = [
     run: window.insertionSortRunner,
     visualize: window.visualizeArray,
   },
+  {
+    name: "Quick Sort",
+    id: "quick-sort",
+    description:
+      "Quick Sort is an efficient sorting algorithm that uses a divide-and-conquer strategy to sort elements.",
+    topic: "Sorting",
+    params: [
+      {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
+      {
+        label: "Speed (ms)",
+        id: "speed",
+        type: "range",
+        default: 1000,
+        min: 20,
+        max: 4000,
+        step: 20,
+      },
+    ],
+    run: window.quickSortRunner,
+    visualize: window.visualizeArray,
+  },
 ];
 
 // --- Algorithm Runner State ---
