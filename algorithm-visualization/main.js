@@ -1,5 +1,13 @@
 // main.js
-
+const speedSliderParam = {
+  label: "Speed (ms)",
+  id: "speed",
+  type: "range",
+  default: 500,
+  min: 20,
+  max: 2000,
+  step: 20,
+};
 // --- Algorithm registration system ---
 const algorithms = [
   {
@@ -11,15 +19,7 @@ const algorithms = [
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "2,6,-2,4,3,2"},
       {label: "Target", id: "target", type: "number", default: -2},
-      {
-        label: "Speed (ms)",
-        id: "speed",
-        type: "range",
-        default: 500,
-        min: 100,
-        max: 2000,
-        step: 100,
-      },
+      speedSliderParam,
     ],
     run: linearSearchRunner,
     visualize: linearSearchVisualizer,
@@ -38,15 +38,7 @@ const algorithms = [
         default: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16",
       },
       {label: "Target", id: "target", type: "number", default: 5},
-      {
-        label: "Speed (ms)",
-        id: "speed",
-        type: "range",
-        default: 500,
-        min: 100,
-        max: 2000,
-        step: 100,
-      },
+      speedSliderParam,
     ],
     run: binarySearchRunner,
     visualize: binarySearchVisualizer,
@@ -59,15 +51,7 @@ const algorithms = [
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
-      {
-        label: "Speed (ms)",
-        id: "speed",
-        type: "range",
-        default: 500,
-        min: 100,
-        max: 2000,
-        step: 100,
-      },
+      speedSliderParam,
     ],
     run: bubbleSortRunner,
     visualize: bubbleSortVisualizer,
@@ -80,15 +64,7 @@ const algorithms = [
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
-      {
-        label: "Speed (ms)",
-        id: "speed",
-        type: "range",
-        default: 500,
-        min: 100,
-        max: 2000,
-        step: 100,
-      },
+      speedSliderParam,
     ],
     run: selectionSortRunner,
     visualize: selectionSortVisualizer,
@@ -101,15 +77,7 @@ const algorithms = [
     topic: "Sorting",
     params: [
       {label: "Array (comma separated)", id: "array", type: "text", default: "4,-2,-8,0,5,2,1,1,0"},
-      {
-        label: "Speed (ms)",
-        id: "speed",
-        type: "range",
-        default: 500,
-        min: 100,
-        max: 2000,
-        step: 100,
-      },
+      speedSliderParam,
     ],
     run: insertionSortRunner,
     visualize: insertionSortVisualizer,
@@ -542,4 +510,5 @@ function insertionSortVisualizer(state, done) {
     vis.innerHTML += `<div style="margin-top:10px;color:#90ee90;">Array is sorted.</div>`;
   }
 }
+
 document.addEventListener("DOMContentLoaded", populateMenu);
