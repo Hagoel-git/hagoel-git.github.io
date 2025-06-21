@@ -137,21 +137,26 @@ function populateMenu() {
       });
     list.appendChild(ul);
   });
-  // algorithms.forEach(algo => {
-  //     const li = document.createElement('li');
-  //     li.textContent = algo.name;
-  //     li.onclick = () => selectAlgorithm(algo.id);
-  //     list.appendChild(li);
-  // });
 }
 
 function selectAlgorithm(id) {
+  stopAlgorithm(); // Stop any running algorithm first
   const main = document.getElementById("main-content");
+
   // Remove old parameters panel if exists
   const oldPanel = document.getElementById("parameters-panel");
   if (oldPanel) oldPanel.remove();
+
   // Get the selected algorithm object
   const algo = algorithms.find((a) => a.id === id);
+  if (!algo) {
+    console.error("Algorithm not found:", id);
+    return;
+  }
+
+  runnerState.currentAlgorithm = algo;
+  runnerState.paused = false;
+
   // Add parameters panel to bottom right (append to body)
   const panel = document.createElement("div");
   panel.id = "parameters-panel";
@@ -188,10 +193,11 @@ function selectAlgorithm(id) {
 // --- Generic algorithm runner state ---
 let runnerState = {
   paused: false,
-  interval: null,
+  timeoutId: null,
   step: 0,
   result: null,
   context: null,
+  currentAlgorithm: null,
 };
 
 function getParams(algo) {
@@ -206,17 +212,43 @@ function getParams(algo) {
 }
 
 function startAlgorithm(algo) {
+  stopAlgorithm();
+  const params = getParams(algo);
+  if (!params) {
+    console.error("Invalid parameters for algorithm:", algo.name);
+    return;
+  }
+
   runnerState.paused = false;
   runnerState.step = 0;
   runnerState.result = null;
-  runnerState.context = algo.run(getParams(algo));
+  runnerState.context = algo.run(params);
+  runnerState.currentAlgorithm = algo;
+
   document.getElementById("return-value").textContent = "";
   document.getElementById("visualization").innerHTML = "";
+
   runAlgorithmStep(algo);
+}
+
+function stopAlgorithm() {
+  if (runnerState.timeoutId) {
+    clearTimeout(runnerState.timeoutId);
+    runnerState.timeoutId = null;
+  }
+  runnerState.paused = false;
+  runnerState.step = 0;
+  runnerState.result = null;
+  runnerState.context = null;
+  runnerState.currentAlgorithm = null;
 }
 
 function pauseAlgorithm() {
   runnerState.paused = true;
+  if (runnerState.timeoutId) {
+    clearTimeout(runnerState.timeoutId);
+    runnerState.timeoutId = null;
+  }
 }
 
 function resumeAlgorithm(algo) {
@@ -226,15 +258,24 @@ function resumeAlgorithm(algo) {
   }
 }
 
-function runAlgorithmStep(algo) {
-  if (runnerState.paused) return;
+function runAlgorithmStep() {
+  if (runnerState.paused || !runnerState.context) return;
+
   const {done, value} = runnerState.context.next();
-  algo.visualize(value, done);
+  let algo = runnerState.currentAlgorithm;
+  if (algo) {
+    algo.visualize(value, done);
+  }
+
   if (done) {
     runnerState.result = value.result;
-    document.getElementById("return-value").textContent = `Return value: ${value.result}`;
+    const returnValue = document.getElementById("return-value");
+    returnValue.textContent = `Return value: ${JSON.stringify(value.result)}`;
+    runnerState.timeoutId = null;
   } else {
-    setTimeout(() => runAlgorithmStep(algo), value.speed || 500);
+    runnerState.timeoutId = setTimeout(() => {
+      runAlgorithmStep();
+    }, value.speed || 500);
   }
 }
 
@@ -243,6 +284,7 @@ function* linearSearchRunner(params) {
   const arr = params.array;
   const target = params.target;
   const speed = params.speed;
+
   for (let i = 0; i < arr.length; i++) {
     yield {arr, target, currentIndex: i, found: arr[i] === target, speed};
     if (arr[i] === target) return {arr, target, currentIndex: i, found: true, result: i, speed};
