@@ -36,6 +36,17 @@ const algorithms = [
         ],
         run: bubbleSortRunner,
         visualize: bubbleSortVisualizer
+    },
+    {
+        name: 'Selection Sort',
+        id: 'selection-sort',
+        description: 'Selection sort is a sorting algorithm, specifically an in-place comparison sort. It has O(n2) time complexity, making it inefficient on large lists, and generally performs worse than the similar insertion sort. Selection sort is noted for its simplicity, and it has performance advantages over more complicated algorithms in certain situations, particularly where auxiliary memory is limited.',
+        params: [
+            { label: 'Array (comma separated)', id: 'array', type: 'text', default: '4,-2,-8,0,5,2,1,1,0' },
+            { label: 'Speed (ms)', id: 'speed', type: 'range', default: 500, min: 100, max: 2000, step: 100 }
+        ],
+        run: selectionSortRunner,
+        visualize: selectionSortVisualizer
     }
     // Add more algorithms here
 ];
@@ -256,5 +267,63 @@ function bubbleSortVisualizer(state, done) {
     }
 }
 
+function* selectionSortRunner(params) {
+    const arr = params.array;
+    const speed = params.speed;
+    
+
+    for (let i = 0; i < arr.length - 1; i++) {
+        let jmin = i;
+        for (let j = i + 1; j < arr.length; j++) {
+            yield { arr, minIndex: jmin, currentIndex: j, speed, swapped: false };
+
+            if (arr[j] < arr[jmin]) {
+                jmin = j;
+            }
+        }
+        if (jmin != i) {
+            const temp = arr[jmin];
+            arr[jmin] = arr[i];
+            arr[i] = temp;
+            yield { arr, minIndex: jmin, currentIndex: i, speed, swapped: true };
+
+        }
+    }
+    return { arr, minIndex: -1, currentIndex: -1, speed, swapped: false };
+}
+
+function selectionSortVisualizer(state, done) {
+    const vis = document.getElementById('visualization');
+    vis.innerHTML = state.arr.map((v, i) => {
+        let borderColor = '#444';
+        let background = '#222';
+        let disabledBackground = '#181818';
+        let fontWeight = 'normal';
+        if (i === state.minIndex || i === state.currentIndex) {
+            borderColor = '#ffb347';            
+            fontWeight = 'bold';
+            if (state.swapped) {
+                background = '#44a344';         
+            } else {
+                background = '#444d';      
+            }
+        }
+        return `<span style="
+            display:inline-block;
+            width:40px;height:40px;
+            line-height:40px;
+            text-align:center;
+            margin:2px;
+            border:2px solid ${borderColor};
+            background:${i> state.nextIndex ? disabledBackground : background};
+            color:#fff;
+            font-weight:${fontWeight};
+        ">${v}</span>`;
+    }).join('');
+
+    if (done) {
+        vis.innerHTML += `<div style="margin-top:10px;color:#90ee90;">Array is sorted.</div>`;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', populateMenu);
